@@ -18,7 +18,7 @@ APP_NAME = 'Albums downloader'
 
 """ Connection to Google APIs """
 # File with the OAuth 2.0 information:
-CLIENT_SECRETS_FILE = "client_secret.json"
+CLIENT_SECRETS_NAME = "google-photos-backup-oauth-client-id"
 # This access scope grants read-only access:
 SCOPES = ['https://www.googleapis.com/auth/photoslibrary.readonly']
 API_SERVICE_NAME = 'photoslibrary'
@@ -32,7 +32,7 @@ def initialize():
     # Setting library
     library = LocalLibrary(APP_NAME)
     # Getting authorization and building service
-    authorization = Auth(SCOPES, CLIENT_SECRETS_FILE)
+    authorization = Auth(SCOPES, CLIENT_SECRETS_NAME)
     credentials = authorization.get_credentials()
     service = build(API_SERVICE_NAME, API_VERSION, credentials=credentials)
     return library, service

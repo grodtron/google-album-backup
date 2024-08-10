@@ -82,7 +82,7 @@ def manage_library(action):
 
     ids = input('\nType ID numbers of albums you want to {} download list\n'
                 '(comma separated, leave empty to cancel):\n>> '.format(prt))
-    if ids is not '':
+    if ids:
         ids = ids.split(',')
         for i in ids:
             # Handling exception - user gives not int or not a number...

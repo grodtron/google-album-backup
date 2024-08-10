@@ -7,15 +7,41 @@ Authorization class and get_credentials method for Google APIs
 from oauth2client import file, client, tools
 import httplib2
 import os
+import boto3
+import json
+from botocore.exceptions import ClientError
+import tempfile
 
 # local imports
 from userdir import user_dir
 
 
 class Auth:
-    def __init__(self, scopes, client_secret_file):
+    def __init__(self, scopes, client_secret_name):
         self.scopes = scopes
-        self.client_secret_file = client_secret_file
+        self.client_secret_name = client_secret_name
+
+    def get_secret_client_config(self):
+        region_name = "eu-north-1"
+
+        # Create a Secrets Manager client
+        session = boto3.session.Session()
+        client = session.client(
+            service_name='secretsmanager',
+            region_name=region_name
+        )
+
+        try:
+            get_secret_value_response = client.get_secret_value(
+                SecretId=self.client_secret_name
+            )
+        except ClientError as e:
+            # For a list of exceptions thrown, see
+            # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+            raise e
+
+        return get_secret_value_response['SecretString']
+
 
     @user_dir
     def get_credentials(self, **kwargs):
@@ -27,23 +53,18 @@ class Auth:
         :param kwargs: to send user directory between method and decorator
         :return: credentials
         """
-        creds_file = os.path.join(kwargs['user_dir'], 'credentials.json')
 
-        # Getting credentials from Storage
-        store = file.Storage(creds_file)
-        creds = store.get()
+        client_secret = self.get_secret_client_config()
 
-        # Validating or refreshing credentials, if necessary
-        if creds is None or creds.invalid:
-            flow = client.flow_from_clientsecrets(self.client_secret_file,
-                                                  self.scopes)
-            creds = tools.run_flow(flow, store)
-        elif creds.access_token_expired:
-            creds.refresh(httplib2.Http())
-        else:
-            pass
 
-        return creds
+        with tempfile.NamedTemporaryFile(mode='w+', delete=True) as temp_file:
+            # Write the client_secrets content to the temporary file
+            temp_file.write(client_secret)
+            temp_file.flush()  # Ensure the content is written to disk
+
+            flow = client.flow_from_clientsecrets(temp_file.name, self.scopes)
+            creds = tools.run_flow(flow)
+            return creds
 
 
 """
