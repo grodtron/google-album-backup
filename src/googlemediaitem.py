@@ -5,14 +5,41 @@ Class GoogleMediaItem - stores information about media item from Google Photos
 
 # general imports
 import os
-from urllib.request import urlretrieve
+import requests
+from datetime import datetime
+from enum import Enum
+
+
+class MediaType(Enum):
+    IMAGE = "image"
+    VIDEO = "video"
+
+    @staticmethod
+    def from_mime_type(mime_type: str):
+        if mime_type.startswith("image/"):
+            return MediaType.IMAGE
+        elif mime_type.startswith("video/"):
+            return MediaType.VIDEO
+        else:
+            raise ValueError(f"Unsupported MIME type: {mime_type}")
+
+    def get_download_parameter(self):
+        if self == MediaType.IMAGE:
+            return "d"
+        elif self == MediaType.VIDEO:
+            return "dv"
+        else:
+            raise ValueError(f"Download parameter not know for {self}")
 
 
 class GoogleMediaItem:
-    def __init__(self, name=None, item_id=None, base_url=None):
+    def __init__(self, name=None, item_id=None, base_url=None, creation_date=None, media_type=None):
         self.name = name
         self.id = item_id
         self.base_url = base_url
+        self.creation_date = creation_date
+        self.media_type = media_type
+
 
     def __str__(self):
         return 'Media item {}: {}'.format(self.name, self.base_url)
@@ -27,16 +54,21 @@ class GoogleMediaItem:
         :return: None
         """
 
-        required_keys = ['filename', 'id', 'baseUrl']
+        required_keys = ['filename', 'id', 'baseUrl', 'mediaMetadata', 'mimeType']
         assert all(key in list(dictionary.keys()) for key in required_keys), \
             'Dictionary missing required key. GoogleMediaItem.from_dict() ' \
             'requires keys: {}'.format(required_keys)
 
+        assert 'creationTime' in dictionary['mediaMetadata']
+
         self.name = dictionary['filename']
         self.id = dictionary['id']
         self.base_url = dictionary['baseUrl']
+        # The [:-1] is to drop the trailing Z, which datetime doesn't like
+        self.creation_date = datetime.fromisoformat(dictionary['mediaMetadata']['creationTime'][:-1])
+        self.media_type = MediaType.from_mime_type(dictionary['mimeType'])
 
-    def download(self, directory):
+    def download(self):
         """
         Downloads media item to given directory (with metadata, except GPS).
         Info about download URL:
@@ -47,10 +79,16 @@ class GoogleMediaItem:
         """
 
         # Setting filename (full path) and URL of file to download
-        filename = os.path.join(directory, self.name)
-        download_url = '{}=d'.format(self.base_url)
+        download_url = f'{self.base_url}={self.media_type.get_download_parameter()}'
 
-        # Downloading
-        urlretrieve(download_url, filename)
 
-        return filename
+        with requests.get(download_url, stream=True) as response:
+            # Raise an exception for HTTP errors
+            response.raise_for_status()
+
+            # Iterate over the response in chunks
+            for chunk in response.iter_content(chunk_size=(10*1024*1024)):
+                # Filter out keep-alive new chunks
+                if chunk:
+                    yield chunk
+

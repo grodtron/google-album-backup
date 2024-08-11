@@ -51,7 +51,7 @@ class GoogleAlbum:
                 'mediaItemsCount': self.items_count, 'productUrl': self.url}
 
     def download(self, service, directory, skip=[], page_token=None,
-                 media_fields='(id,filename,baseUrl)', counter=0):
+                 media_fields='(id,filename,baseUrl,mediaMetadata(creationTime),mimeType)', counter=0):
         """
         Method downloads whole album from Google Photos to directory.
         Calls method GoogleMediaItem.download() to download each media
@@ -89,9 +89,10 @@ class GoogleAlbum:
                 counter += 1
                 downloaded_ids.add(item['id'])
                 media.from_dict(item)
-                name = media.download(album_dir)
-                print('({}/{}) Downloaded: {}' \
-                      .format(counter, self.items_count, name))
+                #name = media.download(album_dir)
+                print('({}/{}) Yielding: {}' \
+                      .format(counter, self.items_count, media.name))
+                yield media
 
         if 'nextPageToken' in response:
             next_ids = self.download(
@@ -104,7 +105,7 @@ class GoogleAlbum:
                                      )
             downloaded_ids.update(next_ids)
 
-        return downloaded_ids
+        #return downloaded_ids
 
 
 def get_albums(service, page_token=None,

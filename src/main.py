@@ -16,6 +16,9 @@ import os
 from locallibrary import LocalLibrary
 from googlealbum import GoogleAlbum, get_albums
 from initialize import initialize
+from s3backup import S3Backup
+
+import boto3
 
 
 # Initialization of local library and Google APIs conection service
@@ -154,13 +157,24 @@ def update_library():
     album = GoogleAlbum()
     # Downloading albums by ID (IDs from set stored in LocalLibrary instance)
     for i in library.get_album_ids():
+
+        # TODO - clean this part up a bit, and figure out why we seem to 
+        # be getting rate limited on the google API or something
+        s3client = boto3.client('s3')
+
+        s3backup = S3Backup("google-photos-album-backup", "gorbaile-test", s3client)
+
         album.from_id(service, album_id=i)
         print('\n{}'.format(album))
-        item_ids = album.download(
+        for item in album.download(
                                   service=service,
                                   directory=library.get_path(),
                                   skip=library.get_album_items(i)
-                                  )
+                                  ):
+
+
+            s3backup.upload(item)
+
         library.add_to_album(i, item_ids)
 
 if __name__ == '__main__':

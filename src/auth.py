@@ -5,6 +5,7 @@ Authorization class and get_credentials method for Google APIs
 
 # general imports
 from oauth2client import file, client, tools
+from oauth2client.client import OAuth2Credentials
 import httplib2
 import os
 import boto3
@@ -21,64 +22,29 @@ class Auth:
         self.scopes = scopes
         self.client_secret_name = client_secret_name
 
-    def get_secret_client_config(self):
-        region_name = "eu-north-1"
 
-        # Create a Secrets Manager client
-        session = boto3.session.Session()
-        client = session.client(
-            service_name='secretsmanager',
-            region_name=region_name
+    def get_credentials(self):
+        # TODO - retrieve from secrets manager
+        # Assuming you've already obtained these from the first interaction
+        refresh_token =  1.0/0.0
+        client_id = 1.0/0.0
+        client_secret = 1.0/0.0
+        token_uri = "https://oauth2.googleapis.com/token"
+
+        credentials = OAuth2Credentials(
+            access_token=None,  # Start with no access token
+            client_id=client_id,
+            client_secret=client_secret,
+            refresh_token=refresh_token,
+            token_expiry=None,
+            token_uri=token_uri,
+            user_agent=None,
+            revoke_uri=None
         )
 
-        try:
-            get_secret_value_response = client.get_secret_value(
-                SecretId=self.client_secret_name
-            )
-        except ClientError as e:
-            # For a list of exceptions thrown, see
-            # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
-            raise e
+        # http = credentials.authorize(httplib2.Http())
 
-        return get_secret_value_response['SecretString']
+        # The credentials object will handle refreshing the token automatically
+        # when you use it with an API request
 
-
-    @user_dir
-    def get_credentials(self, **kwargs):
-        """
-        Method gets user credential from storage - JSON file
-        If credential are not in storage or are invalid, gets new credentials
-        If stored credential are expired, refreshes them
-
-        :param kwargs: to send user directory between method and decorator
-        :return: credentials
-        """
-
-        client_secret = self.get_secret_client_config()
-
-
-        with tempfile.NamedTemporaryFile(mode='w+', delete=True) as temp_file:
-            # Write the client_secrets content to the temporary file
-            temp_file.write(client_secret)
-            temp_file.flush()  # Ensure the content is written to disk
-
-            flow = client.flow_from_clientsecrets(temp_file.name, self.scopes)
-            creds = tools.run_flow(flow)
-            return creds
-
-
-"""
-HELP:
-
-About tools.run_flow:
-'The new credentials are also stored in the storage argument, 
-which updates the file associated with the Storage object.'
-https://oauth2client.readthedocs.io/en/latest/source/oauth2client.tools.html
-
-About OAuth2Credentials and refresh():
-'Forces a refresh of the access_token' - and updates Storage object by storage 
-argument of credentials (see tools.run_flow above). 
-Storage argument is set by file.Storage.get(), when credentials are loaded
-https://oauth2client.readthedocs.io/en/latest/source/oauth2client.client.html#oauth2client.client.OAuth2Credentials
-
-"""
+        return credentials
